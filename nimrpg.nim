@@ -2,28 +2,26 @@ import libtcod, os, parseutils, math
 
 const
   # sample screen size
-  SAMPLE_SCREEN_WIDTH = 46
-  SAMPLE_SCREEN_HEIGHT = 20
+  SCREEN_WIDTH = 80
+  SCREEN_HEIGHT = 50
+  LIMIT_FPS = 20
 
 
 var
   sample_console: PConsole
   renderer = RENDERER_SDL
+  key: TKey
+  mouse: TMouse
 
 
-console_init_root(80, 50, "libtcod sample", false, renderer)
+console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, "libtcod sample", false, renderer)
 
 console_set_default_foreground(nil, GREY)
 
 console_clear(sample_console)
 
-console_put_char(sample_console, 0, 0, 'a', BKGND_NONE)
-
-console_flush()
-
 while not console_is_window_closed():
-  console_put_char(sample_console, 0, 0, 'b', BKGND_NONE)
+  console_put_char(sample_console, 1, 1, '@', BKGND_NONE)
   console_flush()
-
-
-
+  discard sys_check_for_event(EVENT_KEY_PRESS or EVENT_MOUSE, addr(key), addr(mouse))
+  if key.vk == K_ESCAPE: break
