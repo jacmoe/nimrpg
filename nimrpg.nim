@@ -16,6 +16,8 @@ var
 
 console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, "libtcod sample", false, renderer)
 
+sys_set_fps(LIMIT_FPS)
+
 console_set_default_foreground(nil, GREY)
 
 console_clear(sample_console)
