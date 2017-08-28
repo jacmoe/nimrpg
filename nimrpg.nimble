@@ -9,4 +9,4 @@ bin = @["nimrpg"]
 
 # Dependencies
 
-requires "nim >= 0.17.0", "libtcod_nim >= 0.98"
+requires "nim >= 0.17.0", "libtcod_nim >= 0.98", "sysrandom >= 1.1.0"
