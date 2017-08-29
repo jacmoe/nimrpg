@@ -1,13 +1,9 @@
 import view, d20
 
-#init("NimRPG", "Testing...\n")
+init("NimRPG", "Testing...\n")
   
-#main_loop()
-
+main_loop()
+ 
 echo roll_dice(Dice.D8)
-
-echo roll_dice(Dice.D20)
-
-echo roll_dice()
 
 echo roll_dice(Dice.D20, 8)
