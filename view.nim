@@ -49,10 +49,10 @@ proc newRect(x : int, y : int, w : int, h : int) : Rect =
   result.x2 = x + w
   result.y2 = y + h
 
-method center(self: Rect) : array[2, int] =
+method center(self: Rect) : tuple[x : int, y : int] =
   var center_x = (self.x1 + self.x2) div 2
   var center_y = (self.y1 + self.y2) div 2
-  result = [center_x, center_y]
+  result = (center_x, center_y)
 
 method intersect(self : Rect, other : Rect) : bool =
   # returns true if this rectangle intersects with another one
@@ -88,8 +88,8 @@ proc make_map =
   for r in 0..<MAX_ROOMS:
     var w = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
     var h = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-    var x = random_get_int(nil, 0, MAP_WIDTH - w - 1)
-    var y = random_get_int(nil, 0, MAP_HEIGHT - h - 1)
+    var x = random_get_int(nil, 0, MAP_WIDTH - w - 2)
+    var y = random_get_int(nil, 0, MAP_HEIGHT - h - 2)
 
     var new_room = newRect(x, y, w, h)
 
@@ -107,24 +107,23 @@ proc make_map =
 
       if num_rooms == 0:
         # this is the first room, where the player starts at
-        echo "first room"
-        player.x = center_coords[0]
-        player.y = center_coords[1]
+        player.x = center_coords.x
+        player.y = center_coords.y
       else:
         # all rooms after the first
         # reconnect with previous room with a tunnel
         
         var prev_center = rooms[num_rooms - 1].center()
 
-        # draw a coin
+        # toss a coin
         if random_get_int(nil, 0, 1) == 1:
           # first move horizontally, then vertically
-          create_h_tunnel(prev_center[0], center_coords[0], prev_center[1])
-          create_v_tunnel(prev_center[1], center_coords[1], center_coords[0])
+          create_h_tunnel(prev_center.x, center_coords.x, prev_center.y)
+          create_v_tunnel(prev_center.y, center_coords.y, center_coords.x)
         else:
           # first move vertically, then horizontally
-          create_v_tunnel(prev_center[1], center_coords[1], center_coords[0])
-          create_h_tunnel(prev_center[0], center_coords[0], prev_center[1])
+          create_v_tunnel(prev_center.y, center_coords.y, center_coords.x)
+          create_h_tunnel(prev_center.x, center_coords.x, prev_center.y)
       
       # finally, append the new room to the list
       rooms.add(new_room)
