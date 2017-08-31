@@ -50,8 +50,8 @@ type
     explored : bool
 
   # Generic object represented by a character on the screen
-  # A Character can be: player, monster, item, stairs, ...
-  Character = ref object of RootObj
+  # A Thing can be: player, monster, item, stairs, ...
+  Thing = ref object of RootObj
     x, y : int
     color : TColor
     symbol : char
@@ -62,12 +62,12 @@ var
   main_console: PConsole
   key: TKey
   mouse: TMouse
-  player : Character
+  player : Thing
   map : array[0..MAP_WIDTH, array[0..MAP_HEIGHT, Tile]]
   fov_map : PMap
   fov_recompute : bool
   rooms : seq[Rect] = @[]
-  objects : seq[Character] = @[]
+  things : seq[Thing] = @[]
   random : PRandom
 
 #########################################################################
@@ -94,11 +94,11 @@ method intersect(self : Rect, other : Rect) : bool =
 
 proc create_room(room : Rect) =
   # go through the tiles in the rectangle and make them passable
-  for i in room.x1 + 1..room.x2:
-    for j in room.y1 + 1..room.y2:
-      map[i][j].blocked = false
-      map[i][j].block_sight = false
-      map[i][j].explored = false
+  for x in room.x1 + 1..room.x2:
+    for y in room.y1 + 1..room.y2:
+      map[x][y].blocked = false
+      map[x][y].block_sight = false
+      map[x][y].explored = false
 
 proc create_h_tunnel(x1 : int, x2 : int, y : int) =
   #horizontal tunnel. min() and max() are used in case x1>x2
@@ -115,23 +115,23 @@ proc create_v_tunnel(y1 : int, y2 : int, x : int) =
     map[x][y].explored = false
 
 #########################################################################
-# Character
+# Thing
 #########################################################################
 
-method move(self : Character, dx : int, dy : int) =
+method move(self : Thing, dx : int, dy : int) =
   #move by the given amount, if the destination is not blocked
   if not map[self.x + dx][self.y + dy].blocked:
     self.x += dx
     self.y += dy
 
-method draw(self : Character) =
+method draw(self : Thing) =
   # draw the character that represents this object at its position
   if map_is_in_fov(fov_map, self.x, self.y):
     # only draw if it's visible to the player
     console_set_default_foreground(main_console, self.color)
     console_put_char(main_console, self.x, self.y, self.symbol, BKGND_NONE)
 
-method clear(self : Character) =
+method clear(self : Thing) =
   console_put_char(main_console, self.x, self.y, ' ', BKGND_NONE)
   
 #########################################################################
@@ -144,8 +144,8 @@ proc render_all() =
     fov_recompute = false
     map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
     # go through all tiles and set their background color
-    for i in 0..<MAP_WIDTH:
-      for j in 0..<MAP_HEIGHT:
+    for i in 0..MAP_WIDTH:
+      for j in 0..MAP_HEIGHT:
         var visible = map_is_in_fov(fov_map, i, j)
         var wall = map[i][j].block_sight
         if not visible:
@@ -161,12 +161,22 @@ proc render_all() =
             console_set_char_background(main_console, i, j, COLOR_LIGHT_GROUND, BKGND_SET)
           map[i][j].explored = true
         
-  for thing in objects:
+  for thing in things:
     thing.draw()
 
   console_blit(main_console, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, nil, 0, 0, 1.0, 1.0)
 
-proc place_objects(room : Rect) =
+proc is_blocked(x : int, y : int) : bool =
+  result = false
+  # first test the map tile
+  if map[x][y].blocked:
+    result = true
+  # now check for any blocking things
+  for thing in things:
+    if thing.blocks and thing.x == x and thing.y == y:
+      result = true
+
+proc place_things(room : Rect) =
   var num_monsters = random_get_int(random, 0, MAX_ROOM_MONSTERS)
 
   for i in 0..<num_monsters:
@@ -174,21 +184,21 @@ proc place_objects(room : Rect) =
     var x = random_get_int(random, room.x1, room.x2)
     var y = random_get_int(random, room.y1, room.y2)
 
-    var monster : Character
+    var monster : Thing
 
     if random_get_int(random, 0, 100) < 80:
       # 80 % chance of getting an orc
-      monster = Character(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN, name : "Orc", blocks : true)
+      monster = Thing(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN, name : "Orc", blocks : true)
     else:
       # create a troll
-      monster = Character(x : x, y : y, symbol : 'T', color : DARKER_GREEN, name : "Troll", blocks : true)
+      monster = Thing(x : x, y : y, symbol : 'T', color : DARKER_GREEN, name : "Troll", blocks : true)
 
-    objects.add(monster)
+    things.add(monster)
 
 proc make_map =
   # fill map with "blocked" tiles
-  for i in 0..<MAP_WIDTH:
-    for j in 0..<MAP_HEIGHT:
+  for i in 0..MAP_WIDTH:
+    for j in 0..MAP_HEIGHT:
       map[i][j] = Tile(blocked : true, block_sight: true)
   
   var num_rooms : int = 0
@@ -196,8 +206,8 @@ proc make_map =
   for r in 0..<MAX_ROOMS:
     var w = random_get_int(random, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
     var h = random_get_int(random, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-    var x = random_get_int(random, 0, MAP_WIDTH - w - 2)
-    var y = random_get_int(random, 0, MAP_HEIGHT - h - 2)
+    var x = random_get_int(random, 0, MAP_WIDTH - w - 1)
+    var y = random_get_int(random, 0, MAP_HEIGHT - h - 1)
 
     var new_room = newRect(x, y, w, h)
 
@@ -233,8 +243,8 @@ proc make_map =
           create_v_tunnel(prev_center.y, center_coords.y, center_coords.x)
           create_h_tunnel(prev_center.x, center_coords.x, prev_center.y)
       
-      # add some objects to the room
-      place_objects(new_room)
+      # add some things to the room
+      place_things(new_room)
       # finally, append the new room to the list
       rooms.add(new_room)
       num_rooms += 1
@@ -271,16 +281,16 @@ proc init*(title : string) : void =
 
   random = random_new()
 
-  player =  Character(x : 0, y : 0, color : RED, symbol : '@', name : "Hero", blocks : true)
+  player =  Thing(x : 0, y : 0, color : RED, symbol : '@', name : "Hero", blocks : true)
   
-  objects.add(player)
+  things.add(player)
 
   make_map()
 
   # create FOV map
   fov_map = map_new(MAP_WIDTH, MAP_HEIGHT)
-  for y in 0..<MAP_HEIGHT:
-    for x in 0..<MAP_WIDTH:
+  for y in 0..MAP_HEIGHT:
+    for x in 0..MAP_WIDTH:
       map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
 
   fov_recompute = true
