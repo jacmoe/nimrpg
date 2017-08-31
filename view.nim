@@ -24,6 +24,7 @@ const
   ROOM_MAX_SIZE : int = 10
   ROOM_MIN_SIZE : int = 6
   MAX_ROOMS : int = 30
+  MAX_ROOM_MONSTERS : int = 3
   # FOV
   FOV_ALGO : TFOVAlgorithm = FOV_BASIC
   FOV_LIGHT_WALLS : bool = true
@@ -54,6 +55,8 @@ type
     x, y : int
     color : TColor
     symbol : char
+    name : string
+    blocks : bool
 
 var
   main_console: PConsole
@@ -63,6 +66,8 @@ var
   map : array[0..MAP_WIDTH, array[0..MAP_HEIGHT, Tile]]
   fov_map : PMap
   fov_recompute : bool
+  rooms : seq[Rect] = @[]
+  objects : seq[Character] = @[]
 
 #########################################################################
 # Rect
@@ -155,8 +160,29 @@ proc render_all() =
             console_set_char_background(main_console, i, j, COLOR_LIGHT_GROUND, BKGND_SET)
           map[i][j].explored = true
         
-  player.draw()
+  for thing in objects:
+    thing.draw()
+
   console_blit(main_console, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, nil, 0, 0, 1.0, 1.0)
+
+proc place_objects(room : Rect) =
+  var num_monsters = random_get_int(nil, 0, MAX_ROOM_MONSTERS)
+
+  for i in 0..<num_monsters:
+    # choose random spot for this monster
+    var x = random_get_int(nil, room.x1, room.x2)
+    var y = random_get_int(nil, room.y1, room.y2)
+
+    var monster : Character
+
+    if random_get_int(nil, 0, 100) < 80:
+      # 80 % chance of getting an orc
+      monster = Character(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN)
+    else:
+      # create a troll
+      monster = Character(x : x, y : y, symbol : 'T', color : DARKER_GREEN)
+
+    objects.add(monster)
 
 proc make_map =
   # fill map with "blocked" tiles
@@ -164,8 +190,7 @@ proc make_map =
     for j in 0..<MAP_HEIGHT:
       map[i][j] = Tile(blocked : true, block_sight: true)
   
-  var rooms : seq[Rect] = @[]
-  var num_rooms = 0
+  var num_rooms : int = 0
 
   for r in 0..<MAX_ROOMS:
     var w = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
@@ -207,6 +232,8 @@ proc make_map =
           create_v_tunnel(prev_center.y, center_coords.y, center_coords.x)
           create_h_tunnel(prev_center.x, center_coords.x, prev_center.y)
       
+      # add some objects to the room
+      place_objects(new_room)
       # finally, append the new room to the list
       rooms.add(new_room)
       num_rooms += 1
@@ -242,6 +269,8 @@ proc init*(title : string) : void =
   sys_set_fps(LIMIT_FPS)
 
   player =  Character(x : 0, y : 0, color : RED, symbol : '@')
+  
+  objects.add(player)
 
   make_map()
 
