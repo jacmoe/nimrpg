@@ -236,7 +236,7 @@ proc handle_input() : bool =
 # Exported procs
 #########################################################################
 
-proc init*(title : string, message: string) : void =
+proc init*(title : string) : void =
   console_init_root(SCREEN_WIDTH, SCREEN_HEIGHT, title, false)
   main_console = console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
   sys_set_fps(LIMIT_FPS)
