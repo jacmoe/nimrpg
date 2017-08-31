@@ -1,3 +1,16 @@
+#
+#   This file is part of the
+#   _   _ _           _____  _____   _____ 
+#  | \ | (_)         |  __ \|  __ \ / ____|
+#  |  \| |_ _ __ ___ | |__) | |__) | |  __ 
+#  | . ` | | '_ ` _ \|  _  /|  ___/| | |_ |
+#  | |\  | | | | | | | | \ \| |    | |__| |
+#  |_| \_|_|_| |_| |_|_|  \_\_|     \_____|
+# 
+#   project : https://github.com/jacmoe/nimrpg
+#
+#   Copyright 2017 Jacob Moen
+#
 import libtcod
 
 const
@@ -14,15 +27,6 @@ const
   # 20 frames per second limit
   LIMIT_FPS : int = 20
 
-  
-var
-  main_console: PConsole
-  renderer = RENDERER_SDL
-  key: TKey
-  mouse: TMouse
-  player_x = 0
-  player_y = 0
-
 type
   Rect = ref object of RootObj
     x1, x2, y1, y2 : int
@@ -37,6 +41,10 @@ type
     symbol : char
 
 var
+  main_console: PConsole
+  renderer = RENDERER_SDL
+  key: TKey
+  mouse: TMouse
   player : Character
   map : array[0..MAP_WIDTH, array[0..MAP_HEIGHT, Tile]]
   color_dark_wall : TColor = color_RGB(0, 0, 100)
