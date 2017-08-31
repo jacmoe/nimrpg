@@ -14,5 +14,5 @@
 import view, d20
 
 init("NimRPG")
-  
+
 main_loop()
