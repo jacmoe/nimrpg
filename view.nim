@@ -7,9 +7,13 @@ const
   # map size
   MAP_WIDTH = 80
   MAP_HEIGHT = 45
+  # dungeon generation
+  ROOM_MAX_SIZE = 10
+  ROOM_MIN_SIZE = 6
+  MAX_ROOMS = 30
   # 20 frames per second limit
   LIMIT_FPS : int = 20
-  
+
   
 var
   main_console: PConsole
@@ -45,6 +49,16 @@ proc newRect(x : int, y : int, w : int, h : int) : Rect =
   result.x2 = x + w
   result.y2 = y + h
 
+method center(self: Rect) : array[2, int] =
+  var center_x = (self.x1 + self.x2) div 2
+  var center_y = (self.y1 + self.y2) div 2
+  result = [center_x, center_y]
+
+method intersect(self : Rect, other : Rect) : bool =
+  # returns true if this rectangle intersects with another one
+  return (self.x1 <= other.x2 and self.x2 >= other.x1 and
+          self.y1 <= other.y2 and self.y2 >= other.y1)
+
 proc create_room(room : Rect) =
   # go through the tiles in the rectangle and make them passable
   for i in room.x1 + 1..room.x2:
@@ -68,12 +82,53 @@ proc make_map =
     for j in 0..<MAP_HEIGHT:
       map[i][j] = Tile(blocked : true, block_sight: true)
   
-  # create two rooms
-  var room1  = newRect(20, 15, 10, 15)
-  var room2 = newRect(50, 15, 10, 15)
-  create_room(room1)
-  create_room(room2)
-  create_h_tunnel(25, 55, 23)
+  var rooms : seq[Rect] = @[]
+  var num_rooms = 0
+
+  for r in 0..<MAX_ROOMS:
+    var w = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+    var h = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+    var x = random_get_int(nil, 0, MAP_WIDTH - w - 1)
+    var y = random_get_int(nil, 0, MAP_HEIGHT - h - 1)
+
+    var new_room = newRect(x, y, w, h)
+
+    var failed = false
+    for other_room in rooms:
+      if new_room.intersect(other_room):
+        failed = true
+        break
+    if not failed:
+      # no intersection, so this room is valid
+      # paint it to the map tiles
+      create_room(new_room)
+      # center coordinates of the new room
+      var center_coords = new_room.center()
+
+      if num_rooms == 0:
+        # this is the first room, where the player starts at
+        echo "first room"
+        player.x = center_coords[0]
+        player.y = center_coords[1]
+      else:
+        # all rooms after the first
+        # reconnect with previous room with a tunnel
+        
+        var prev_center = rooms[num_rooms - 1].center()
+
+        # draw a coin
+        if random_get_int(nil, 0, 1) == 1:
+          # first move horizontally, then vertically
+          create_h_tunnel(prev_center[0], center_coords[0], prev_center[1])
+          create_v_tunnel(prev_center[1], center_coords[1], center_coords[0])
+        else:
+          # first move vertically, then horizontally
+          create_v_tunnel(prev_center[1], center_coords[1], center_coords[0])
+          create_h_tunnel(prev_center[0], center_coords[0], prev_center[1])
+      
+      # finally, append the new room to the list
+      rooms.add(new_room)
+      num_rooms += 1
 
 method move(self : Character, dx : int, dy : int) =
   if not map[self.x + dx][self.y + dy].blocked:
@@ -96,9 +151,6 @@ proc init*(title : string, message: string) : void =
   player =  Character(x : 0, y : 0, color : RED, symbol : '@')
 
   make_map()
-
-  player.x = 25
-  player.y = 23
 
   console_clear(main_console)
   #discard console_print_rect_ex(main_console, SCREEN_WIDTH_2, 3, SCREEN_WIDTH, 0, BKGND_NONE, CENTER, message)
