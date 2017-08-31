@@ -11,7 +11,7 @@
 
    Copyright 2017 Jacob Moen
 ]#
-import view, d20
+import rpg
 
 init("NimRPG")
 

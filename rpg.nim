@@ -68,6 +68,7 @@ var
   fov_recompute : bool
   rooms : seq[Rect] = @[]
   objects : seq[Character] = @[]
+  random : PRandom
 
 #########################################################################
 # Rect
@@ -166,21 +167,21 @@ proc render_all() =
   console_blit(main_console, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, nil, 0, 0, 1.0, 1.0)
 
 proc place_objects(room : Rect) =
-  var num_monsters = random_get_int(nil, 0, MAX_ROOM_MONSTERS)
+  var num_monsters = random_get_int(random, 0, MAX_ROOM_MONSTERS)
 
   for i in 0..<num_monsters:
     # choose random spot for this monster
-    var x = random_get_int(nil, room.x1, room.x2)
-    var y = random_get_int(nil, room.y1, room.y2)
+    var x = random_get_int(random, room.x1, room.x2)
+    var y = random_get_int(random, room.y1, room.y2)
 
     var monster : Character
 
-    if random_get_int(nil, 0, 100) < 80:
+    if random_get_int(random, 0, 100) < 80:
       # 80 % chance of getting an orc
-      monster = Character(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN)
+      monster = Character(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN, name : "Orc", blocks : true)
     else:
       # create a troll
-      monster = Character(x : x, y : y, symbol : 'T', color : DARKER_GREEN)
+      monster = Character(x : x, y : y, symbol : 'T', color : DARKER_GREEN, name : "Troll", blocks : true)
 
     objects.add(monster)
 
@@ -193,10 +194,10 @@ proc make_map =
   var num_rooms : int = 0
 
   for r in 0..<MAX_ROOMS:
-    var w = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-    var h = random_get_int(nil, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
-    var x = random_get_int(nil, 0, MAP_WIDTH - w - 2)
-    var y = random_get_int(nil, 0, MAP_HEIGHT - h - 2)
+    var w = random_get_int(random, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+    var h = random_get_int(random, ROOM_MIN_SIZE, ROOM_MAX_SIZE)
+    var x = random_get_int(random, 0, MAP_WIDTH - w - 2)
+    var y = random_get_int(random, 0, MAP_HEIGHT - h - 2)
 
     var new_room = newRect(x, y, w, h)
 
@@ -268,7 +269,9 @@ proc init*(title : string) : void =
   main_console = console_new(SCREEN_WIDTH, SCREEN_HEIGHT)
   sys_set_fps(LIMIT_FPS)
 
-  player =  Character(x : 0, y : 0, color : RED, symbol : '@')
+  random = random_new()
+
+  player =  Character(x : 0, y : 0, color : RED, symbol : '@', name : "Hero", blocks : true)
   
   objects.add(player)
 
@@ -295,3 +298,5 @@ proc main_loop*() : void =
     
     if not handle_input():
       break;
+  
+  random_delete(random)
