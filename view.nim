@@ -25,7 +25,7 @@ const
   ROOM_MIN_SIZE : int = 6
   MAX_ROOMS : int = 30
   # FOV
-  FOV_ALGO : int = 0
+  FOV_ALGO : TFOVAlgorithm = FOV_BASIC
   FOV_LIGHT_WALLS : bool = true
   TORCH_RADIUS : int = 10
   # 20 frames per second limit
@@ -46,6 +46,7 @@ type
   Tile = ref object of RootObj
     blocked : bool
     block_sight : bool
+    explored : bool
 
   # Generic object represented by a character on the screen
   # A Character can be: player, monster, item, stairs, ...
@@ -60,6 +61,7 @@ var
   mouse: TMouse
   player : Character
   map : array[0..MAP_WIDTH, array[0..MAP_HEIGHT, Tile]]
+  fov_map : PMap
   fov_recompute : bool
 
 #########################################################################
@@ -90,18 +92,21 @@ proc create_room(room : Rect) =
     for j in room.y1 + 1..room.y2:
       map[i][j].blocked = false
       map[i][j].block_sight = false
+      map[i][j].explored = false
 
 proc create_h_tunnel(x1 : int, x2 : int, y : int) =
   #horizontal tunnel. min() and max() are used in case x1>x2
   for x in min(x1, x2)..(max(x1, x2) + 1):
     map[x][y].blocked = false
     map[x][y].block_sight = false
+    map[x][y].explored = false
 
 proc create_v_tunnel(y1 : int, y2 : int, x : int) =
   #vertical tunnel
   for y in min(y1, y2)..(max(y1, y2) + 1):
     map[x][y].blocked = false
     map[x][y].block_sight = false
+    map[x][y].explored = false
 
 #########################################################################
 # Character
@@ -115,8 +120,10 @@ method move(self : Character, dx : int, dy : int) =
 
 method draw(self : Character) =
   # draw the character that represents this object at its position
-  console_set_default_foreground(main_console, self.color)
-  console_put_char(main_console, self.x, self.y, self.symbol, BKGND_NONE)
+  if map_is_in_fov(fov_map, self.x, self.y):
+    # only draw if it's visible to the player
+    console_set_default_foreground(main_console, self.color)
+    console_put_char(main_console, self.x, self.y, self.symbol, BKGND_NONE)
 
 method clear(self : Character) =
   console_put_char(main_console, self.x, self.y, ' ', BKGND_NONE)
@@ -126,13 +133,27 @@ method clear(self : Character) =
 #########################################################################
 
 proc render_all() =
-  # go through all tiles and set their background color
-  for i in 0..<MAP_WIDTH:
-    for j in 0..<MAP_HEIGHT:
-      if map[i][j].block_sight:
-        console_set_char_background(main_console, i, j, COLOR_DARK_WALL, BKGND_SET)
-      else:
-        console_set_char_background(main_console, i, j, COLOR_DARK_GROUND, BKGND_SET)
+  if fov_recompute:
+    # recompute FOV if needed
+    fov_recompute = false
+    map_compute_fov(fov_map, player.x, player.y, TORCH_RADIUS, FOV_LIGHT_WALLS, FOV_ALGO)
+    # go through all tiles and set their background color
+    for i in 0..<MAP_WIDTH:
+      for j in 0..<MAP_HEIGHT:
+        var visible = map_is_in_fov(fov_map, i, j)
+        var wall = map[i][j].block_sight
+        if not visible:
+          if map[i][j].explored:
+            if wall:
+              console_set_char_background(main_console, i, j, COLOR_DARK_WALL, BKGND_SET)
+            else:
+              console_set_char_background(main_console, i, j, COLOR_DARK_GROUND, BKGND_SET)
+        else:
+          if wall:
+            console_set_char_background(main_console, i, j, COLOR_LIGHT_WALL, BKGND_SET)
+          else:
+            console_set_char_background(main_console, i, j, COLOR_LIGHT_GROUND, BKGND_SET)
+          map[i][j].explored = true
         
   player.draw()
   console_blit(main_console, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, nil, 0, 0, 1.0, 1.0)
@@ -198,12 +219,16 @@ proc handle_input() : bool =
     result = false
   of K_UP:
     player.move(0, -1)
+    fov_recompute = true
   of K_DOWN:
     player.move(0, 1)
+    fov_recompute = true
   of K_LEFT:
     player.move(-1, 0)
+    fov_recompute = true
   of K_RIGHT:
     player.move(1, 0)
+    fov_recompute = true
   else:
     result = true
 
@@ -219,6 +244,14 @@ proc init*(title : string, message: string) : void =
   player =  Character(x : 0, y : 0, color : RED, symbol : '@')
 
   make_map()
+
+  # create FOV map
+  fov_map = map_new(MAP_WIDTH, MAP_HEIGHT)
+  for y in 0..<MAP_HEIGHT:
+    for x in 0..<MAP_WIDTH:
+      map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
+
+  fov_recompute = true
 
   console_clear(main_console)
   #discard console_print_rect_ex(main_console, SCREEN_WIDTH_2, 3, SCREEN_WIDTH, 0, BKGND_NONE, CENTER, message)
