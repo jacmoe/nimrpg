@@ -58,6 +58,14 @@ type
     name : string
     blocks : bool
 
+  PlayState = enum
+    PLAYING
+
+  PlayerAction = enum
+    NONE,
+    EXIT,
+    DIDNT_TAKE_TURN
+
 var
   main_console: PConsole
   key: TKey
@@ -69,6 +77,8 @@ var
   rooms : seq[Rect] = @[]
   things : seq[Thing] = @[]
   random : PRandom
+  game_state : PlayState
+  player_action : PlayerAction
 
 #########################################################################
 # Rect
@@ -179,7 +189,7 @@ proc is_blocked(x : int, y : int) : bool =
 proc place_things(room : Rect) =
   var num_monsters = random_get_int(random, 0, MAX_ROOM_MONSTERS)
 
-  for i in 0..<num_monsters:
+  for i in 0..num_monsters:
     # choose random spot for this monster
     var x = random_get_int(random, room.x1, room.x2)
     var y = random_get_int(random, room.y1, room.y2)
@@ -249,26 +259,31 @@ proc make_map =
       rooms.add(new_room)
       num_rooms += 1
 
-proc handle_input() : bool =
+proc handle_input() : PlayerAction =
   discard sys_wait_for_event(EVENT_KEY_PRESS or EVENT_MOUSE, addr(key), addr(mouse), true)
-  result = true
+  result = NONE
   case key.vk
   of K_ESCAPE:
-    result = false
-  of K_UP:
-    player.move(0, -1)
-    fov_recompute = true
-  of K_DOWN:
-    player.move(0, 1)
-    fov_recompute = true
-  of K_LEFT:
-    player.move(-1, 0)
-    fov_recompute = true
-  of K_RIGHT:
-    player.move(1, 0)
-    fov_recompute = true
+    result = EXIT
   else:
-    result = true
+    result = NONE
+
+  if game_state == PLAYING and result == NONE:
+    case key.vk
+    of K_UP:
+      player.move(0, -1)
+      fov_recompute = true
+    of K_DOWN:
+      player.move(0, 1)
+      fov_recompute = true
+    of K_LEFT:
+      player.move(-1, 0)
+      fov_recompute = true
+    of K_RIGHT:
+      player.move(1, 0)
+      fov_recompute = true
+    else:
+      result = DIDNT_TAKE_TURN
 
 #########################################################################
 # Exported procs
@@ -294,6 +309,8 @@ proc init*(title : string) : void =
       map_set_properties(fov_map, x, y, not map[x][y].block_sight, not map[x][y].blocked)
 
   fov_recompute = true
+  player_action = NONE
+  game_state = PLAYING
 
   console_clear(main_console)
   #discard console_print_rect_ex(main_console, SCREEN_WIDTH_2, 3, SCREEN_WIDTH, 0, BKGND_NONE, CENTER, message)
@@ -304,9 +321,19 @@ proc main_loop*() : void =
     render_all()
 
     console_flush()
-    player.clear()
     
-    if not handle_input():
+    for thing in things:
+      thing.clear()
+    
+    player_action = handle_input()
+
+    if player_action == EXIT:
       break;
   
+    # let monsters take their turn
+    if game_state == PLAYING and player_action == DIDNT_TAKE_TURN:
+      for thing in things:
+        if thing != player:
+          echo("The ", thing.name, " growls!")
+
   random_delete(random)
