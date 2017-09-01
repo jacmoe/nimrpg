@@ -191,8 +191,16 @@ proc place_things(room : Rect) =
 
   for i in 0..num_monsters:
     # choose random spot for this monster
-    var x = random_get_int(random, room.x1, room.x2)
-    var y = random_get_int(random, room.y1, room.y2)
+    var x, y = 0
+    var still_searching = true
+
+    # get random monster position and make sure it is not the same as the player position:
+    while still_searching:
+      x = random_get_int(random, room.x1, room.x2)
+      y = random_get_int(random, room.y1, room.y2)
+      # stop the search if random position is not blocked
+      if not is_blocked(x, y):
+        break
 
     var monster : Thing
 
@@ -259,6 +267,25 @@ proc make_map =
       rooms.add(new_room)
       num_rooms += 1
 
+proc player_move_or_attack(dx : int, dy : int) =
+  # the coordinates the player is moving to/attacking
+  var x = player.x + dx
+  var y = player.y + dy
+
+  # try to find an attackable object there
+  var target : Thing = nil
+  for thing in things:
+    if thing.x == x and thing.y == y:
+      target = thing
+      break
+
+  # attack if target is found, move otherwise
+  if target != nil:
+    echo("The ", target.name, " laughs at your puny effort to attack it!")
+  else:
+    player.move(dx, dy)
+    fov_recompute = true
+
 proc handle_input() : PlayerAction =
   discard sys_wait_for_event(EVENT_KEY_PRESS or EVENT_MOUSE, addr(key), addr(mouse), true)
   result = NONE
@@ -271,17 +298,13 @@ proc handle_input() : PlayerAction =
   if game_state == PLAYING and result == NONE:
     case key.vk
     of K_UP:
-      player.move(0, -1)
-      fov_recompute = true
+      player_move_or_attack(0, -1)
     of K_DOWN:
-      player.move(0, 1)
-      fov_recompute = true
+      player_move_or_attack(0, 1)
     of K_LEFT:
-      player.move(-1, 0)
-      fov_recompute = true
+      player_move_or_attack(-1, 0)
     of K_RIGHT:
-      player.move(1, 0)
-      fov_recompute = true
+      player_move_or_attack(1, 0)
     else:
       result = DIDNT_TAKE_TURN
 
