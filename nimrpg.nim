@@ -16,3 +16,4 @@ import rpg
 init("NimRPG")
 
 main_loop()
+
