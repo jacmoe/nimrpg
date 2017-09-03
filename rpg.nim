@@ -85,11 +85,7 @@ var
 #########################################################################
 
 proc newRect(x : int, y : int, w : int, h : int) : Rect =
-  result = new Rect
-  result.x1 = x
-  result.y1 = y
-  result.x2 = x + w
-  result.y2 = y + h
+  Rect(x1 : x, y1 : y, x2 : x + w, y2 : y + h)
 
 method center(self: Rect) : tuple[x : int, y : int] =
   # returns the center of this rectangle
