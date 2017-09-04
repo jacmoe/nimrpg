@@ -49,6 +49,13 @@ type
     block_sight : bool
     explored : bool
 
+  Fighter = ref object of RootObj
+    max_hp, hp, defense, power : int
+    owner : ref RootObj
+
+  AI = ref object of RootObj
+    owner : ref RootObj
+
   # Generic object represented by a character on the screen
   # A Thing can be: player, monster, item, stairs, ...
   Thing = ref object of RootObj
@@ -57,6 +64,10 @@ type
     symbol : char
     name : string
     blocks : bool
+    fighter : Fighter
+    ai : AI
+
+  BasicMonster = ref object of AI
 
   PlayState = enum
     PLAYING
@@ -124,6 +135,21 @@ proc create_v_tunnel(y1 : int, y2 : int, x : int) =
 # Thing
 #########################################################################
 
+proc newThing(x : int, y : int, symbol : char, name : string, color : TColor, blocks : bool, fighter : Fighter = nil, ai : AI = nil) : Thing =
+  result = new Thing
+  result.x = x
+  result.y = y
+  result.symbol = symbol
+  result.name = name
+  result.color = color
+  result.blocks = blocks
+  result.fighter = fighter
+  if fighter != nil:
+    fighter.owner = result
+    result.ai = ai
+  if ai != nil:
+    ai.owner = result
+
 method move(self : Thing, dx : int, dy : int) =
   #move by the given amount, if the destination is not blocked
   if not map[self.x + dx][self.y + dy].blocked:
@@ -140,6 +166,13 @@ method draw(self : Thing) =
 method clear(self : Thing) =
   console_put_char(main_console, self.x, self.y, ' ', BKGND_NONE)
   
+#########################################################################
+# AI
+#########################################################################
+method take_turn(self : BasicMonster) =
+  echo("The ", Thing(self.owner).name, " growls!")
+
+
 #########################################################################
 # Internal procs
 #########################################################################
@@ -202,10 +235,14 @@ proc place_things(room : Rect) =
 
     if random_get_int(random, 0, 100) < 80:
       # 80 % chance of getting an orc
-      monster = Thing(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN, name : "Orc", blocks : true)
+      var fighter_component = Fighter(hp : 10, defense : 0, power : 3)
+      var ai_component = BasicMonster()
+      monster = Thing(x : x, y : y, symbol : 'o', color : DESATURATED_GREEN, name : "Orc", blocks : true, fighter : fighter_component, ai : ai_component)
     else:
       # create a troll
-      monster = Thing(x : x, y : y, symbol : 'T', color : DARKER_GREEN, name : "Troll", blocks : true)
+      var fighter_component = Fighter(hp : 16, defense : 1, power : 4)
+      var ai_component = BasicMonster()
+      monster = Thing(x : x, y : y, symbol : 'T', color : DARKER_GREEN, name : "Troll", blocks : true, fighter : fighter_component, ai : ai_component)
 
     things.add(monster)
 
@@ -315,7 +352,9 @@ proc init*(title : string) : void =
 
   random = random_new()
 
-  player =  Thing(x : 0, y : 0, color : RED, symbol : '@', name : "Hero", blocks : true)
+  var fighter_component = Fighter(hp : 30, defense : 2, power : 5)
+  var ai_component = BasicMonster()
+  player =  Thing(x : 0, y : 0, color : RED, symbol : '@', name : "Hero", blocks : true, fighter : fighter_component, ai : ai_component)
   
   things.add(player)
 
