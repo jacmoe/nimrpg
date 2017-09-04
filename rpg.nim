@@ -11,7 +11,7 @@
 
    Copyright 2017 Jacob Moen
 ]#
-import libtcod
+import libtcod, math
 
 const
   # window size
@@ -156,6 +156,12 @@ method move(self : Thing, dx : int, dy : int) =
     self.x += dx
     self.y += dy
 
+method move_towards(self: Thing, target_x : int, target_y : int) =
+  # vector from this object to the target, and distance
+  var dx = float(target_x - self.x)
+  var dy = float(target_y - self.y)
+  var distance = sqrt(dx^2 + dy^2)
+
 method draw(self : Thing) =
   # draw the character that represents this object at its position
   if map_is_in_fov(fov_map, self.x, self.y):
@@ -170,7 +176,12 @@ method clear(self : Thing) =
 # AI
 #########################################################################
 method take_turn(self : BasicMonster) =
-  echo("The ", Thing(self.owner).name, " growls!")
+  var monster = Thing(self.owner)
+  if map_is_in_fov(fov_map, monster.x, monster.y):
+    if monster.distance_to(player) >= 2:
+      monster.move_towards(player.x, player.y)
+    elif player.fighter.hp > 0:
+      echo("The attack of the ", monster.name, " bounces off your shiny metal armor!")
 
 
 #########################################################################
