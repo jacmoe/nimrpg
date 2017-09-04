@@ -162,6 +162,7 @@ method move_towards(self: Thing, target_x : int, target_y : int) =
   var dy = float(target_y - self.y)
   var distance = sqrt(dx^2 + dy^2)
 
+
 method draw(self : Thing) =
   # draw the character that represents this object at its position
   if map_is_in_fov(fov_map, self.x, self.y):
